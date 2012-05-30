@@ -13,6 +13,7 @@ Group:      Development/Tools
 License:    GPLv3
 URL:        http://www.gnu.org/software/patch/patch.html
 Source0:    ftp://ftp.gnu.org/gnu/patch/patch-%{version}.tar.xz
+Source1001: packaging/patch.manifest 
 Patch0:     patch-2.5.4-sigsegv.patch
 
 
@@ -38,6 +39,7 @@ applications.
 # << setup
 
 %build
+cp %{SOURCE1001} .
 # >> build pre
 CFLAGS="$RPM_OPT_FLAGS -D_GNU_SOURCE"
 # << build pre
@@ -55,6 +57,7 @@ rm -rf %{buildroot}
 
 
 %files
+%manifest patch.manifest
 %defattr(-,root,root,-)
 # >> files
 %{_bindir}/*
