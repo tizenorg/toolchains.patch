@@ -1,14 +1,13 @@
-Name:       patch
-Summary:    The GNU patch command, for modifying/upgrading files
-Version:    2.6
-Release:    1
-Group:      Development/Tools
-License:    GPLv3
-URL:        http://www.gnu.org/software/patch/patch.html
-Source0:    ftp://ftp.gnu.org/gnu/patch/patch-%{version}.tar.xz
-Source1001: packaging/patch.manifest 
-Patch0:     patch-2.5.4-sigsegv.patch
-
+Name:           patch
+Version:        2.6.1.169
+Release:        1
+License:        GPL-3.0
+Summary:        The GNU patch command, for modifying/upgrading files
+Url:            http://www.gnu.org/software/patch/patch.html
+Group:          Development/Tools
+Source0:        ftp://ftp.gnu.org/gnu/patch/patch-%{version}.tar.xz
+Source1001:     patch.manifest
+Patch0:         patch-2.5.4-sigsegv.patch
 
 %description
 The patch program applies diff files to originals.  The diff command
@@ -20,27 +19,21 @@ original file (patching the file).
 Patch should be installed because it is a common way of upgrading
 applications.
 
-
 %prep
-%setup -q -n %{name}-%{version}
-
-# patch-2.5.4-sigsegv.patch
+%setup -q
 %patch0 -p1
 
 %build
 cp %{SOURCE1001} .
-CFLAGS="$RPM_OPT_FLAGS -D_GNU_SOURCE"
+CFLAGS="%{optflags} -D_GNU_SOURCE"
 
-%configure --disable-static
-make %{?jobs:-j%jobs}
+%configure 
+make %{?_smp_mflags}
 
 %install
-rm -rf %{buildroot}
 %make_install
-
 
 %files
 %manifest patch.manifest
-%defattr(-,root,root,-)
 %{_bindir}/*
 %doc %{_mandir}/*/*
