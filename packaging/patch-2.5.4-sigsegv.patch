@@ -1,0 +1,42 @@
+diff --git a/src/inp.c b/src/inp.c
+index 9cc140f..b3be80f 100644
+--- a/src/inp.c
++++ b/src/inp.c
+@@ -73,6 +73,14 @@ re_input (void)
+     }
+ }
+ 
++void
++reset_scan_input_vars()
++{
++ using_plan_a = 1;
++ i_buffer = NULL;
++ i_ptr = NULL;
++}
++
+ /* Construct the line index, somehow or other. */
+ 
+ void
+diff --git a/src/inp.h b/src/inp.h
+index ac999f9..ef3f189 100644
+--- a/src/inp.h
++++ b/src/inp.h
+@@ -22,4 +22,5 @@ XTERN lin input_lines;		/* how long is input file in lines */
+ char const *ifetch (lin, bool, size_t *);
+ bool get_input_file (char const *, char const *, mode_t);
+ void re_input (void);
++void reset_scan_input_vars (void);
+ void scan_input (char *, mode_t);
+diff --git a/src/patch.c b/src/patch.c
+index e0e4f38..1465043 100644
+--- a/src/patch.c
++++ b/src/patch.c
+@@ -315,6 +315,8 @@ main (int argc, char **argv)
+ 		if (verbosity == VERBOSE)
+ 		  say ("Using Plan %s...\n", using_plan_a ? "A" : "B");
+ 	      }
++	} else {
++		reset_scan_input_vars ();
+ 	}
+ 
+ 	/* from here on, open no standard i/o files, because malloc */
