@@ -1,0 +1,378 @@
+2012-04-24  Andreas Gruenbacher  <agruen@linbit.com>
+
+	Fix segfault in output_file_later()
+	Bug reported by Dmitry V. Levin <ldv@altlinux.org>.
+	* src/patch.c (output_file_later): Fix case where the output file is identical
+	with the input file (and to == NULL).
+
+2012-04-17  Andreas Gruenbacher  <agruen@linbit.com>
+
+	maint: update bootstrap and gnulib submodule
+	* bootstrap: Update from gnulib.
+
+	Update NEWS
+	* NEWS: Update.
+
+	Only warn when trying to modify read-only files
+	Failing when trying to patch read-only files causes various users of patch to
+	break.  Instead, warn by default and introduce a command line option for
+	choosing a different behavior.
+	* patch.man: Describe the new behavior and command-line option.
+	* src/patch.c (read_only_behavior): New variable.
+	(main): Implement the new behavior.
+	(longopts): Add the new --read-only option.
+	(option_help): Describe the new behavior.
+	(get_some_switches): Recognize the new --read-only option.
+
+	Fix "delete file which does not exist" test case
+	* tests/create-delete: Remove left-over file f.orig before the test.
+
+	For git-style patch files, do not output files immediately
+	In git-style patch files, all patches refer to the initial state of the input
+	files; files cannot be modified more than once.  Implement these semantics by
+	creating all output files once all patches in the patch file have been
+	processed.
+	* src/patch.c (init_files_to_output, output_files): Add prototypes.
+	(main): Remember which type of patch file we are processing.  Initialize the
+	output files list.  Output files of git-style patches once all patches have
+	been read, or when from git-style to normal patches.
+	(file_to_output): New struct.
+	(files_to_output): List of the files to output.
+	(output_file, output_file_now, output_file_later): Either queue a file for
+	deletion, remember to output a file later (git-style), or output the file
+	immediately (normal).
+	(dispose_file_to_output, init_files_to_output, output_files,
+	 forget_output_files): New functions.
+	(gl_list_clear): Should be provided by gnulib but isn't.
+	(cleanup): Clean up any left-over temporary output files as well.
+	* tests/Makefile-am (XFAIL_TESTS): Remove criss-cross; this test case works now.
+	* tests/mixed-patch-types: Patch files that change from normal to git-style, or
+	from git-style to normal.
+
+	Export the patch type
+	* src/pch.c (p_git_diff): New global variable.
+	(intuit_diff_type): Use p_git_diff instead of a local variable.
+	(pch_git_diff): New function.
+
+	Remove invalid symlink test case
+	* tests/symlinks: Remove test case which deletes and then recreates a symlink:
+	all patches in a git-style input file must refer to the "before" state; the
+	test case is invalid.
+
+	No longer remember backup files
+	Remembering backup files was needed because we would have lost track of deleted
+	files before -- but we don't delete files immediately anymore.
+	* src/util.c (create_backup_copy): No longer remember backup files.
+	(create_backup): Likewise; update comment.
+	(move_file): Update create_backup() call.
+	* src/util.h (create_backup): Update prototype.
+	* src/patch.c (output_file): Update create_backup() call.
+
+	Do not delete files immediately
+	Fixes the bug that more than one numbered backup would be created when a patch
+	file deletes and recreates a file.
+	* bootstrap.conf (gnulib_modules): Add linked-list and xlist modules.
+	* src/util.h (file_id_type): Add DELETE_LATER and OVERWRITTEN types.
+	(create_backup, set_file_attributes): Update prototype.
+	(insert_file_id): Add prototype.
+	* src/util.c (insert_file_id): Export.
+	(set_file_attributes, create_backup_copy): Make the st argument const.
+	(create_backup): Pass in to_st instead of returning it from create_backup().
+	This obsoletes the to_errno argument.
+	(move_file): Determine to_st here and pass it to create_backup().  Remember
+	when a file is overwritten.
+	* src/patch.c (output_file): Add to_st parameter.  Remember files to delete
+	instead of deleting them immediately.  Pass from-st to create_backup().
+	(file_to_delete): New struct.
+	(init_files_to_delete, delete_file_later, delete_files): New functions.
+	(main): Use init_files_to_delete() and delete_files().  Pass to_st to
+	output_file() where we already have it.
+	* src/pch.c (intuit_diff_type): Assume that files which are marked for deletion
+	don't exist.
+
+	Create and delete output files in a single function
+	* src/patch.c (output_file): New function for creating or deleting an output
+	file and backing the old file up as needed.
+	(main): Use the new function.
+	* src/util.c (move_file): Allow FROM_NEEDS_REMOVAL to be NULL.
+
+	Add a type field to entries in the file id cache
+	* src/util.h (file_id_type): New enum.
+	* src/util.c (file_id): Add a file_id_type field.
+	(insert_file_id): Rename from insert_file(); specify a type when inserting a
+	file id.
+	(lookup_file_id): Rename from file_id_exists(); return a file id type.
+	(create_backup_copy, create_backup, move_file): Use insert_file_id() instead of
+	insert_file(), and lookup_file_id() instead of file_already_seen().
+	* src/patch.c (main): Use lookup_file_id() instead of file_already_seen().
+
+	Switch from the `old' gnu quoting style to the 'new' one
+	* src/common.h, src/patch.c, src/pch.c, src/util.c, src/util.h: Switch from the
+	`old' gnu quoting style to the 'new' one in messages and comments.
+
+2012-04-06  Andreas Gruenbacher  <agruen@linbit.com>
+
+	Fix use-after-free bug in name_is_valid()
+	Reported by Steffen Sledz in
+	https://bugzilla.novell.com/show_bug.cgi?id=755136 via Jean Delvare.
+	Bug introduced in commit v2.6.1-115-ge0f7075; fixed with help from Jim
+	Meyering <meyering@redhat.com>.
+	* src/common.h (ARRAY_SIZE): New macro.
+	* src/pch.c (invalid_names): New global variable for remembering bad names.
+	(intuit_diff_type): Reset invalid_names for each new patch; the names from the
+	previous patch have already been freed.
+	(name_is_valid): Use invalid_names.  Make the code "safer" and avoid
+	duplication.
+
+	Require automake-1.11.2
+	* configure.ac (AM_INIT_AUTOMAKE): Require version 1.11.2 which introduced the
+	AM_PROG_AR macro, used since commit 297f9e7d.
+
+2012-02-25  Jim Meyering  <meyering@redhat.com>
+
+	build: update gnulib submodule to latest
+
+2012-02-16  Jim Meyering  <meyering@redhat.com>
+
+	build: update bootstrap from gnulib and adapt
+	* bootstrap: Update from gnulib.
+	* bootstrap.conf (gnulib_tool_option_extras): Define.
+	* lib/Makefile.am: Initialize numerous automake variables so that
+	generated code in gnulib.mk may use += to append to them.
+	* configure.ac: Add AM_PROG_AR, to placate newer automake.
+
+2012-01-01  Jim Meyering  <meyering@redhat.com>
+
+	maint: enable the sc_space_tab syntax-check rule
+	* cfg.mk (local-checks-to-skip): Remove sc_space_tab,
+	thus enabling this syntax-check rule.
+	* tests/quoted-filenames: Use TAB-space, not space-TAB.
+
+	maint: enable the useless_cpp_parens syntax-check rule
+	* cfg.mk (local-checks-to-skip): Remove sc_useless_cpp_parens,
+	thus enabling this syntax-check rule.
+	* src/patch.c: Remove unneeded parentheses.
+
+	maint: update all copyright year number ranges
+	Run "make update-copyright".
+
+2011-12-14  Jim Meyering  <meyering@redhat.com>
+
+	build: update to latest gnulib and adapt
+	Mark functions as pure of const, per recommendations enabled by
+	new gcc -W options.  Apply _GL_ATTRIBUTE_PURE and _GL_ATTRIBUTE_CONST.
+	* src/common.h: Apply new function attributes.
+	* src/pch.c: Likewise.
+	* src/pch.h: Likewise.
+	* src/util.c: Likewise.
+	* src/util.h: Likewise.
+	* configure.ac: Use -Wno-format-nonliteral.
+	* m4/.gitignore: Update.
+	* gnulib: Update to latest.
+	* cfg.mk: Exempt src/util.c from two tests, to avoid new
+	"make syntax-check" failures.
+
+2011-12-09  Andreas Gruenbacher  <agruen@linbit.com>
+
+	Timestamp not set when creating files with --set-time or --set-utc
+	* src/util.h (enum file_attributes): Add FA_XATTRS flag for extended
+	attributes.
+	* src/patch.c (main): Use set_file_attributes() even when the infile doesn't
+	exist: it may still set the file time (FA_TIMES).  Omit all other FA_ flags if
+	infile doesn't exist.  Otherwise, add FA_XATTRS as well.
+	* src/util.c (set_file_attributes): Only copy extended attributes if FA_XATTRS
+	is set.  Avoid using st where it may be undefined.
+	* tests/preserve-mode-and-timestamp: Add file create test.
+
+2011-10-12  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	tests: specify test runner in LOG_COMPILER, not in TEST_ENVIRONMENT
+	* tests/Makefile.am (TESTS_ENVIRONMENT): Don't use $(SHELL) here
+	to ensure the test scripts are run through it; instead, ...
+	(LOG_COMPILER): ... use it here.
+
+2011-10-11  Jim Meyering  <meyering@redhat.com>
+
+	give a diagnostic rather than a failed assertion for a mangled patch
+	* src/pch.c (another_hunk): Rather than asserting(C), issue the
+	"replacement text or line numbers mangled ..." diagnostic when !C.
+	* tests/mangled-numbers-abort: New test for the above.
+	* tests/Makefile.am (TESTS): Add it.
+	* NEWS: Mention it.
+	Reported by Gabriel Vlasiu via Tim Waugh.
+	See also http://bugzilla.redhat.com/738959
+
+2011-08-11  Jim Meyering  <meyering@redhat.com>
+
+	build: use largefile module and update to latest gnulib
+	* configure.ac: Remove AC_SYS_LARGEFILE, subsumed by ...
+	* bootstrap.conf (gnulib_modules): ...this.  Use largefile module.
+	* gnulib: Update to latest.
+	This is useful to Mac OS X 10.5 users if/when configure
+	is generated using autoconf prior to v2.68-80-gdb2f2e0.
+
+	build: include .version in tarball to avoid distcheck failure
+	* Makefile.am (EXTRA_DIST): Append .version, to avoid "make distcheck"
+	failure when run from an unpacked tarball.
+	Reported by Iain Nicol.
+
+2011-08-11  Andreas Gruenbacher  <agruen@linbit.com>
+
+	README: Describe where to go from a "git clone"
+	* README: Refer users to README-hacking after a "git clone".
+
+2011-05-25  Jim Meyering  <meyering@redhat.com>
+
+	don't call fdopen with a negative FD upon dup failure
+	* src/patch.c (open_outfile): If dup fails, don't clobber its
+	errno value by calling fdopen with -1.
+
+	plug a leak in inp.c's plan_a
+	* src/inp.c (plan_a): Don't leak "buffer" upon early return.
+
+	emit one more diagnostic with the required "program_name: " prefix
+	* src/util.c: Include "error.h".
+	(ask): Use error, not perror.  The latter would not have included
+	the usual "program name: " prefix.
+
+	remove side effect from assert
+	* src/util.c (parse_c_string): Don't increment "s" in assert.
+
+	explicitly ignore close return value to placate static analyzers
+	* src/util.c: Include "ignore-value.h".
+	(ask): Use ignore_value to tell tools that yes, we really do
+	mean to ignore any close failure on this error path.
+	* bootstrap.conf (gnulib_modules): Add ignore-value.
+
+	plug a leak in fetchname
+	* src/util.c (fetchname): Don't leak "timestr" when returning early.
+
+2011-05-25  Andreas Gruenbacher  <agruen@linbit.com>
+
+	avoid a used-uninitialized error in fetchname
+	* src/util.c (fetchname): Avoid a used-uninitialized error.
+	Before, when "*t == '\n'", stamp.tv_nsec would have been
+	used undefined.  The fix is to set that member rather than
+	stamp.tv_sec, which is already set to the desired value.
+	This was reported by coverity.
+
+2011-05-25  Jim Meyering  <meyering@redhat.com>
+
+	plug a leak in bestmatch
+	* src/bestmatch.h (bestmatch): Don't leak V when returning early.
+
+2011-03-27  Jim Meyering  <meyering@redhat.com>
+
+	maint: ignore more build artifacts
+
+	build: don't turn off -Wmissing-declarations
+	* configure.ac (WERROR_CFLAGS): Don't turn off -Wmissing-declarations
+	and admit that it's not worth fixing the few warnings triggered
+	by -Wmissing-format-attribute.
+
+	build: don't turn off -Wmissing-prototypes
+	* configure.ac (WERROR_CFLAGS): Don't turn off -Wmissing-prototypes.
+	* src/pch.c (skip_hex_digits): Declare static.
+	* src/bestmatch.h (bestmatch): Likewise.
+
+	maint: remove now-unneeded macro definitions
+	* bootstrap.conf (gnulib_modules): Include gnulib's signal module,
+	so that signal.h guarantees definition of certain macros.
+	* src/util.c (SIG_BLOCK, SIG_UNBLOCK, SIG_SETMASK): Remove definition.
+	Now, gnulib guarantees that these are defined.
+	* src/common.h (SIZE_MAX): Likewise.
+	* cfg.mk (local-checks-to-skip): Enable the
+	sc_prohibit_always-defined_macros check, now that it passes.
+
+	maint: use gnulib's progname module
+	* src/patch.c (main): Call set_program_name rather than
+	initializing program_name explicitly.
+	* src/common.h: Include progname.h rather than declaring the extern,
+	program_name.
+	* bootstrap.conf (gnulib_modules): Add progname.
+	* cfg.mk (local-checks-to-skip): Remove sc_program_name,
+	thus enabling this test.
+
+	maint: update bootstrap and gnulib submodule
+	* bootstrap: Update from gnulib.
+	* cfg.mk (local-checks-to-skip): Remove (thus, enable)
+	sc_copyright_check, now that the gnulib submodule is up to date.
+
+	maint: update copyright date year ranges to include 2011
+	* bootstrap.conf (gnulib_modules): Add update-copyright.
+	Run "make update-copyright".
+
+	build: avoid three gcc warnings
+	* src/patch.c (mangled_patch): Add "noreturn" attribute.
+	* src/pch.h (pch_timestamp): Remove ignored "const" attribute.
+	* src/version.c (XTERN): Remove unused #undef and #define.
+
+	tests: temporarily disable failing syntax-check rules
+	* cfg.mk (local-checks-to-skip): Define, to skip all of the
+	currently-failing syntax-check rules.  We'll reenable them
+	one by one, as problems are addressed.
+
+2011-03-26  Jim Meyering  <meyering@redhat.com>
+
+	build: accept new configure-time option --enable-gcc-warnings
+	* configure.ac: Enable many options.
+	* bootstrap.conf (gnulib_modules): Add manywarnings.
+	* src/Makefile.am (AM_CFLAGS): Use $(WARN_CFLAGS) and $(WERROR_CFLAGS).
+
+	maint: avoid non-portable use of test -a
+	With these changes, "make sc_prohibit_test_minus_ao" almost passes.
+	Uses of "test -o" remain.
+	Note: unchecked uses of test -ot/-nt also remain.
+	* tests/empty-files: Use "test C1 && test C2", not "test C1 -a C2"
+	* tests/merge: Likewise.
+	* tests/symlinks: Likewise.
+	* tests/test-lib.sh: Likewise.
+
+	maint: allow the sc_prohibit_empty_lines_at_EOF test to pass
+	* tests/test-lib.sh: Remove empty line at end of file.
+
+	maint: remove trailing blanks
+	* bootstrap.conf: Remove trailing blanks.
+	* tests/reject-format: Define a dummy, empty variable, and use it in
+	here-doc to protect required trailing blanks from accidental removal.
+	* tests/no-newline-triggers-assert: Likewise.
+	* tests/preserve-c-function-names: Likewise.
+	* tests/create-delete: Likewise.
+	* tests/global-reject-files: Complete a sentence that ended in a space.
+
+	maint: add some m4 quoting
+	* m4/setmode.m4 (AC_FUNC_SETMODE_DOS): Use proper M4 quoting.
+
+	maint: arrange for the sc_require_config_h_first test to pass
+	* cfg.mk: New file, to configure maint.mk.
+	* Makefile.am (EXTRA_DIST): Add, so the new file is distributed.
+	(config_h_header): Define, to make the sc_require_config_h_first
+	syntax-check test pass.
+	* pc/chdirsaf.c: Include <config.h>.
+
+	maint: use gnulib's maintainer-makefile module
+	* bootstrap.conf (gnulib_modules): Add maintainer-makefile.
+
+2011-03-21  Jim Meyering  <meyering@redhat.com>
+
+	doc: update README-hacking
+	* README-hacking: Update from coreutils, including mention of
+	how to use vc-dwim to git-commit efficiently and safely using
+	a non-VC'd ChangeLog file.
+
+	build: update gnulib submodule to latest
+
+2011-03-17  Jim Meyering  <meyering@redhat.com>
+
+	do not version-control ChangeLog; instead, generate it from git log
+	With this change, all ChangeLog entries going forward are generated
+	into a file named ChangeLog in each distribution tarball.
+	ChangeLog entries prior to today's date are in ChangeLog-2011.
+	* Makefile.am (gen-ChangeLog): New rule.
+	(dist-hook): Depend on it.
+	(EXTRA_DIST): Add ChangeLog-2011.
+	* ChangeLog-2011: Renamed from ChangeLog
+	* ChangeLog: Remove file.
+	* .gitignore: Ignore ChangeLog.
+	* bootstrap.conf: Ensure that ChangeLog exists.
+	(gnulib_modules): Add gitlog-to-changelog.
