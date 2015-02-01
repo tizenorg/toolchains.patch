@@ -15,6 +15,7 @@ URL:        http://www.gnu.org/software/patch/patch.html
 Source0:    ftp://ftp.gnu.org/gnu/patch/patch-%{version}.tar.xz
 Patch0:     patch-2.5.4-sigsegv.patch
 
+
 %description
 The patch program applies diff files to originals.  The diff command
 is used to compare an original to a changed file.  Diff lists the
