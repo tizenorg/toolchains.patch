@@ -1,20 +1,21 @@
 /*  Merge a patch
 
-    Copyright (C) 2009-2012 Free Software Foundation, Inc.
+    Copyright (C) 2009  Free Software Foundation, Inc.
     Written by Andreas Gruenbacher <agruen@gnu.org>, 2009.
 
-   This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.  */
 
 #define XTERN extern
 #include <common.h>
@@ -24,16 +25,17 @@
 #include <pch.h>
 #include <util.h>
 
-static lin count_context_lines (void);
-static bool context_matches_file (lin, lin);
-static void compute_changes (lin, lin, lin, lin, char *, char *);
+static LINENUM count_context_lines (void);
+static bool context_matches_file (LINENUM, LINENUM);
+static void compute_changes (LINENUM, LINENUM, LINENUM, LINENUM, char *,
+			     char *);
 
-#define OFFSET lin
+#define OFFSET LINENUM
 #define EQUAL_IDX(x, y) (context_matches_file (x, y))
 #include "bestmatch.h"
 
-#define XVECREF_YVECREF_EQUAL(ctxt, x, y) (context_matches_file (x, y))
-#define OFFSET lin
+#define EQUAL_IDX(ctxt, x, y) (context_matches_file (x, y))
+#define OFFSET LINENUM
 #define EXTRA_CONTEXT_FIELDS \
 	char *xchar; \
 	char *ychar;
@@ -42,22 +44,21 @@ static void compute_changes (lin, lin, lin, lin, char *, char *);
 #define USE_HEURISTIC 1
 #include "diffseq.h"
 
-static lin
-locate_merge (lin *matched)
+static LINENUM
+locate_merge (LINENUM *matched)
 {
-    lin first_guess = pch_first () + in_offset;
-    lin pat_lines = pch_ptrn_lines ();
-    lin context_lines = count_context_lines ();
-    lin max_where = input_lines - pat_lines + context_lines + 1;
-    lin min_where = last_frozen_line + 1;
-    lin max_pos_offset = max_where - first_guess;
-    lin max_neg_offset = first_guess - min_where;
-    lin max_offset = (max_pos_offset < max_neg_offset
-		      ? max_neg_offset : max_pos_offset);
-    lin where = first_guess, max_matched = 0;
-    lin min, max;
-    lin offset;
-    bool match_until_eof;
+    LINENUM first_guess = pch_first () + in_offset;
+    LINENUM pat_lines = pch_ptrn_lines ();
+    LINENUM context_lines = count_context_lines ();
+    LINENUM max_where = input_lines - pat_lines + context_lines + 1;
+    LINENUM min_where = last_frozen_line + 1;
+    LINENUM max_pos_offset = max_where - first_guess;
+    LINENUM max_neg_offset = first_guess - min_where;
+    LINENUM max_offset = (max_pos_offset < max_neg_offset
+			  ? max_neg_offset : max_pos_offset);
+    LINENUM where = first_guess, max_matched = 0;
+    LINENUM min, max;
+    LINENUM offset;
 
     /* Note: we need to preserve patch's property that it applies hunks at the
        best match closest to their original position in the file.  It is
@@ -84,10 +85,10 @@ locate_merge (lin *matched)
 
     /* Hunks from the start or end of the file have less context. Anchor them
        to the start or end, trying to make up for this disadvantage.  */
-    offset = pch_suffix_context () - pch_prefix_context ();
-    if (offset > 0 && pch_first () <= 1)
+    if (pch_prefix_context () < pch_suffix_context () && pch_first () <= 1)
       max_pos_offset = 0;
-    match_until_eof = offset < 0;
+    else if (pch_suffix_context () > pch_prefix_context ())
+      max_neg_offset = 0;
 
     /* Do not try lines <= 0.  */
     if (first_guess <= max_neg_offset)
@@ -97,13 +98,12 @@ locate_merge (lin *matched)
       {
 	if (offset <= max_pos_offset)
 	  {
-	    lin guess = first_guess + offset;
-	    lin last;
-	    lin changes;
+	    LINENUM guess = first_guess + offset;
+	    LINENUM last;
+	    LINENUM changes;
 
 	    changes = bestmatch (1, pat_lines + 1, guess, input_lines + 1,
-				 match_until_eof ? input_lines - guess + 1 : min,
-				 max, &last);
+				 min, max, &last);
 	    if (changes <= max && max_matched < last - guess)
 	      {
 		max_matched = last - guess;
@@ -116,13 +116,12 @@ locate_merge (lin *matched)
 	  }
 	if (0 < offset && offset <= max_neg_offset)
 	  {
-	    lin guess = first_guess - offset;
-	    lin last;
-	    lin changes;
+	    LINENUM guess = first_guess - offset;
+	    LINENUM last;
+	    LINENUM changes;
 
 	    changes = bestmatch (1, pat_lines + 1, guess, input_lines + 1,
-				 match_until_eof ? input_lines - guess + 1 : min,
-				 max, &last);
+				 min, max, &last);
 	    if (changes <= max && max_matched < last - guess)
 	      {
 		max_matched = last - guess;
@@ -153,7 +152,7 @@ locate_merge (lin *matched)
 }
 
 static void
-print_linerange (lin from, lin to)
+print_linerange (LINENUM from, LINENUM to)
 {
   char numbuf0[LINENUM_LENGTH_BOUND + 1];
   char numbuf1[LINENUM_LENGTH_BOUND + 1];
@@ -168,7 +167,8 @@ print_linerange (lin from, lin to)
 }
 
 static void
-merge_result (bool *first_result, int hunk, char const *what, lin from, lin to)
+merge_result (bool *first_result, int hunk, char const *what, LINENUM from,
+	      LINENUM to)
 {
   static char const *last_what;
 
@@ -196,21 +196,21 @@ merge_result (bool *first_result, int hunk, char const *what, lin from, lin to)
 }
 
 bool
-merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
+merge_hunk (int hunk, struct outstate *outstate, LINENUM where,
+	    bool *somefailed)
 {
   bool applies_cleanly;
   bool first_result = true;
-  bool already_applied;
   FILE *fp = outstate->ofp;
-  lin old = 1;
-  lin firstold = pch_ptrn_lines ();
-  lin new = firstold + 1;
-  lin firstnew = pch_end ();
-  lin in;
-  lin firstin;
+  LINENUM old = 1;
+  LINENUM firstold = pch_ptrn_lines ();
+  LINENUM new = firstold + 1;
+  LINENUM firstnew = pch_end ();
+  LINENUM in;
+  LINENUM firstin;
   char *oldin;
-  lin matched;
-  lin lastwhere;
+  LINENUM matched;
+  LINENUM lastwhere;
 
   /* Convert '!' markers into '-' and '+' to simplify things here.  */
   pch_normalize (UNI_DIFF);
@@ -243,7 +243,7 @@ merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
     {
       char numbuf0[LINENUM_LENGTH_BOUND + 1];
       char numbuf1[LINENUM_LENGTH_BOUND + 1];
-      lin n;
+      LINENUM n;
 
       fputc ('\n', stderr);
       for (n = 0; n <= in + matched; n++)
@@ -289,7 +289,7 @@ merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
 
       if (pch_char (old) == '-' || pch_char (new) == '+')
 	{
-	  lin lines;
+	  LINENUM lines;
 
 	  while (pch_char (old) == '-')
 	    {
@@ -425,20 +425,10 @@ merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
 	   firstin < in && firstnew < new
 	     && context_matches_file (firstnew, lastwhere);
 	   firstin++, firstnew++, lastwhere++)
-	/* do nothing */ ;
-      already_applied = (firstin == in && firstnew == new);
-      if (already_applied)
+	continue;
+      if (firstin == in && firstnew == new)
 	merge_result (&first_result, hunk, "already applied",
 		      where, lastwhere - 1);
-      if (conflict_style == MERGE_DIFF3)
-	{
-	  lin common_prefix = lastwhere - where;
-
-	  /* Forget about common prefix lines.  */
-	  firstin -= common_prefix;
-	  firstnew -= common_prefix;
-	  lastwhere -= common_prefix;
-	}
       if (where != lastwhere)
 	{
 	  where = lastwhere;
@@ -446,27 +436,23 @@ merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
 	    return false;
 	}
 
-      if (! already_applied)
+      if (firstin < in || firstnew < new)
 	{
-	  lin common_suffix = 0;
-	  lin lines;
+	  LINENUM common_suffix;
+	  LINENUM lines;
 
-	  if (conflict_style == MERGE_MERGE)
-	    {
-	      /* Remember common suffix lines.  */
-	      for (lastwhere = where + (in - firstin);
-		   firstin < in && firstnew < new
-		   && context_matches_file (new - 1, lastwhere - 1);
-		   in--, new--, lastwhere--, common_suffix++)
-		/* do nothing */ ;
-	    }
+	  /* Remember common suffix lines.  */
+	  for (common_suffix = 0,
+	       lastwhere = where + (in - firstin);
+	       firstin < in && firstnew < new
+		 && context_matches_file (new - 1, lastwhere - 1);
+	       in--, new--, lastwhere--, common_suffix++)
+	    continue;
 
 	  lines = 3 + (in - firstin) + (new - firstnew);
-	  if (conflict_style == MERGE_DIFF3)
-	    lines += 1 + (old - firstold);
 	  merge_result (&first_result, hunk, "NOT MERGED",
 			where, where + lines - 1);
-	  out_offset += lines - (in - firstin);
+	  out_offset += 3 + (new - firstnew);
 
 	  fputs (outstate->after_newline + "\n<<<<<<<\n", fp);
 	  outstate->after_newline = true;
@@ -476,18 +462,6 @@ merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
 	      if (! copy_till (outstate, where - 1))
 		return false;
 	    }
-
-	  if (conflict_style == MERGE_DIFF3)
-	    {
-	      fputs (outstate->after_newline + "\n|||||||\n", fp);
-	      outstate->after_newline = true;
-	      while (firstold < old)
-		{
-		  outstate->after_newline = pch_write_line (firstold, fp);
-		  firstold++;
-		}
-	    }
-
 	  fputs (outstate->after_newline + "\n=======\n", fp);
 	  outstate->after_newline = true;
 	  while (firstnew < new)
@@ -520,12 +494,12 @@ merge_hunk (int hunk, struct outstate *outstate, lin where, bool *somefailed)
   return true;
 }
 
-static lin
+static LINENUM
 count_context_lines (void)
 {
-  lin old;
-  lin lastold = pch_ptrn_lines ();
-  lin context;
+  LINENUM old;
+  LINENUM lastold = pch_ptrn_lines ();
+  LINENUM context;
 
   for (context = 0, old = 1; old <= lastold; old++)
     if (pch_char (old) == ' ')
@@ -534,7 +508,7 @@ count_context_lines (void)
 }
 
 static bool
-context_matches_file (lin old, lin where)
+context_matches_file (LINENUM old, LINENUM where)
 {
   size_t size;
   const char *line;
@@ -548,11 +522,11 @@ context_matches_file (lin old, lin where)
 }
 
 static void
-compute_changes (lin xmin, lin xmax, lin ymin, lin ymax,
+compute_changes (LINENUM xmin, LINENUM xmax, LINENUM ymin, LINENUM ymax,
 		 char *xchar, char *ychar)
 {
   struct context ctxt;
-  lin diags;
+  LINENUM diags;
 
   ctxt.xchar = xchar - xmin;
   ctxt.ychar = ychar - ymin;

@@ -1,8 +1,7 @@
-diff --git a/src/inp.c b/src/inp.c
-index 9cc140f..b3be80f 100644
---- a/src/inp.c
-+++ b/src/inp.c
-@@ -73,6 +73,14 @@ re_input (void)
+diff -up patch-2.6/src/inp.c.sigsegv patch-2.6/src/inp.c
+--- patch-2.6/src/inp.c.sigsegv	2009-11-02 19:09:57.000000000 +0000
++++ patch-2.6/src/inp.c	2009-11-16 09:31:52.305022200 +0000
+@@ -77,6 +77,14 @@ re_input (void)
      }
  }
  
@@ -17,26 +16,27 @@ index 9cc140f..b3be80f 100644
  /* Construct the line index, somehow or other. */
  
  void
-diff --git a/src/inp.h b/src/inp.h
-index ac999f9..ef3f189 100644
---- a/src/inp.h
-+++ b/src/inp.h
-@@ -22,4 +22,5 @@ XTERN lin input_lines;		/* how long is input file in lines */
- char const *ifetch (lin, bool, size_t *);
- bool get_input_file (char const *, char const *, mode_t);
+diff -up patch-2.6/src/inp.h.sigsegv patch-2.6/src/inp.h
+--- patch-2.6/src/inp.h.sigsegv	2009-11-02 19:09:57.000000000 +0000
++++ patch-2.6/src/inp.h	2009-11-16 09:32:24.440021838 +0000
+@@ -24,4 +24,5 @@ XTERN LINENUM input_lines;		/* how long 
+ char const *ifetch (LINENUM, bool, size_t *);
+ void get_input_file (char const *, char const *);
  void re_input (void);
 +void reset_scan_input_vars (void);
- void scan_input (char *, mode_t);
-diff --git a/src/patch.c b/src/patch.c
-index e0e4f38..1465043 100644
---- a/src/patch.c
-+++ b/src/patch.c
-@@ -315,6 +315,8 @@ main (int argc, char **argv)
- 		if (verbosity == VERBOSE)
- 		  say ("Using Plan %s...\n", using_plan_a ? "A" : "B");
- 	      }
-+	} else {
-+		reset_scan_input_vars ();
- 	}
+ void scan_input (char *);
+diff -up patch-2.6/src/patch.c.sigsegv patch-2.6/src/patch.c
+--- patch-2.6/src/patch.c.sigsegv	2009-11-02 19:09:57.000000000 +0000
++++ patch-2.6/src/patch.c	2009-11-16 09:31:52.306021801 +0000
+@@ -210,7 +210,10 @@ main (int argc, char **argv)
+ 
+ 	/* find out where all the lines are */
+ 	if (!skip_rest_of_patch)
+-	    scan_input (inname);
++          scan_input (inname);
++        else
++          reset_scan_input_vars ();
++        
  
  	/* from here on, open no standard i/o files, because malloc */
+ 	/* might misfire and we can't catch it easily */

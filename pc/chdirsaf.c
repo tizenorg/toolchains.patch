@@ -1,7 +1,6 @@
 /* A safer version of chdir, which returns back to the
    initial working directory when the program exits.  */
 
-#include <config.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>

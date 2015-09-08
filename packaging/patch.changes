@@ -1,14 +1,2 @@
-* Fri Jun 08 2012 Anas Nashif <anas.nashif@intel.com> e004f48
-- Update to version 2.6.1.169
-
-* Tue Jun 05 2012 Junfeng Dong <junfeng.dong@intel.com> cf09205
-- Add missing source files.
-
-* Wed May 30 2012 Ryan Ware <ryan.r.ware@intel.com> b78bdfc
-- Add default Smack manifest for patch.spec
-
-* Mon May 21 2012 Kim Kibum <kb0929.kim@samsung.com> 0785125
-- Upload Tizen:Base source
-[ Hyesook Choi ]
-- Initial empty repository
-
+* Fri Jul 20 2011 Junfeng Dong <junfeng.dong@intel.com> -2.6
+- Import 2.6 for SLP.
